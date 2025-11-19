@@ -1,0 +1,895 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Energy & Environment Analyzer</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    
+    <style>
+        body {
+            font-family: 'Poppins', sans-serif;
+            background-color: #0f172a; /* Slate 900 */
+            /* Premium Animated Background Gradient */
+            background-image: 
+                radial-gradient(at 0% 0%, hsla(253,16%,7%,1) 0, transparent 50%), 
+                radial-gradient(at 50% 0%, hsla(225,39%,30%,1) 0, transparent 50%), 
+                radial-gradient(at 100% 0%, hsla(339,49%,30%,1) 0, transparent 50%);
+            background-attachment: fixed;
+            color: #e2e8f0; /* Slate 200 */
+        }
+
+        /* Glassmorphism Card Style */
+        .glass-card {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+        }
+
+        /* 3D Button Effect */
+        .btn-3d {
+            transition: all 0.1s;
+            box-shadow: 0px 5px 0px 0px rgba(0,0,0,0.3);
+            transform: translateY(0);
+        }
+        .btn-3d:active {
+            transform: translateY(5px);
+            box-shadow: 0px 0px 0px 0px rgba(0,0,0,0.3);
+        }
+        .btn-3d:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+            transform: translateY(5px);
+            box-shadow: none;
+        }
+
+        /* Glass Input Styling */
+        .glass-input {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: white;
+        }
+        .glass-input:focus {
+            outline: none;
+            border-color: #38bdf8; /* Sky blue */
+            box-shadow: 0 0 15px rgba(56, 189, 248, 0.3);
+        }
+        .glass-input:disabled {
+            background: rgba(255, 255, 255, 0.05);
+            color: #94a3b8;
+        }
+        
+        /* Dropdown options fix for dark mode */
+        select option {
+            background-color: #1e293b;
+            color: white;
+        }
+
+        /* Floating Animation */
+        @keyframes float {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+            100% { transform: translateY(0px); }
+        }
+        .animate-float {
+            animation: float 6s ease-in-out infinite;
+        }
+
+        /* Tree Sway Animation */
+        @keyframes sway {
+            0% { transform: rotate(0deg); }
+            25% { transform: rotate(5deg); }
+            75% { transform: rotate(-5deg); }
+            100% { transform: rotate(0deg); }
+        }
+        .tree-anim {
+            transform-origin: bottom center;
+            animation: sway 3s ease-in-out infinite;
+        }
+
+        /* Loader */
+        .loader {
+            border: 3px solid rgba(255,255,255,0.1);
+            border-top: 3px solid #38bdf8;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Leaflet Map Container - Now White Background */
+        #map {
+            height: 400px;
+            width: 100%;
+            z-index: 1;
+            border-radius: 1rem;
+            background-color: #ffffff; /* Ensure white background before tiles load */
+        }
+        /* Customizing Leaflet Popup for Light Map */
+        .leaflet-popup-content-wrapper {
+            background: #ffffff;
+            color: #1e293b;
+            font-weight: 500;
+            border: 1px solid #cbd5e1;
+        }
+        .leaflet-popup-tip {
+            background: #ffffff;
+        }
+
+        /* Hide Number Arrows */
+        input[type=number]::-webkit-inner-spin-button, 
+        input[type=number]::-webkit-outer-spin-button { 
+            -webkit-appearance: none; 
+            margin: 0; 
+        }
+    </style>
+</head>
+<body class="h-full overflow-y-auto selection:bg-cyan-500 selection:text-white">
+    
+    <div class="container mx-auto max-w-4xl p-4 md:p-8 relative z-10">
+        
+        <header class="text-center mb-10 mt-4 animate-float">
+            <h1 class="text-4xl md:text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500 mb-3 drop-shadow-lg">
+                Smart Energy Calculator
+            </h1>
+            <p class="text-lg text-slate-400 font-light">
+                Analyze costs, save money, and protect the planet. <br>
+                <span class="text-cyan-400 text-sm font-medium tracking-wide">Understand your usage, secure the future.</span>
+            </p>
+            <button id="logout-btn" class="hidden mt-6 bg-red-500/20 hover:bg-red-500/40 text-red-200 text-sm font-medium py-2 px-6 rounded-full border border-red-500/30 transition-all">
+                Log Out
+            </button>
+        </header>
+
+        <main>
+            <section id="page-login" class="glass-card p-8 rounded-3xl max-w-md mx-auto">
+                <h2 class="text-2xl font-bold text-white mb-2 text-center">Welcome Back</h2>
+                <p class="text-slate-400 text-center mb-8 text-sm">Please login to continue.</p>
+                
+                <form id="login-form" class="space-y-5">
+                    <div>
+                        <label for="login-email" class="block text-xs uppercase tracking-wider text-cyan-400 mb-2 ml-1 font-semibold">Email Address</label>
+                        <input type="email" id="login-email" placeholder="you@example.com" required class="glass-input w-full rounded-xl p-4 transition-all placeholder-slate-500">
+                    </div>
+                    <div>
+                        <label for="login-password" class="block text-xs uppercase tracking-wider text-cyan-400 mb-2 ml-1 font-semibold">Password</label>
+                        <input type="password" id="login-password" placeholder="••••••••" required class="glass-input w-full rounded-xl p-4 transition-all placeholder-slate-500">
+                    </div>
+                    <button id="login-btn" type="submit" class="btn-3d w-full bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold py-4 px-4 rounded-xl text-lg shadow-lg border-t border-white/20 mt-4">
+                        Login Securely
+                    </button>
+                    <p class="text-center text-sm text-slate-400 mt-4">
+                        Don't have an account? 
+                        <a href="#" id="goto-signup-link" class="text-cyan-400 hover:text-cyan-300 font-medium transition-colors">Sign Up Here</a>
+                    </p>
+                </form>
+            </section>
+
+            <section id="page-signup" class="hidden glass-card p-8 rounded-3xl max-w-md mx-auto">
+                <h2 class="text-2xl font-bold text-white mb-2 text-center">Create Account</h2>
+                <p class="text-slate-400 text-center mb-8 text-sm">Join the green energy movement.</p>
+                
+                <form id="signup-form" class="space-y-5">
+                    <div>
+                        <label for="signup-email" class="block text-xs uppercase tracking-wider text-cyan-400 mb-2 ml-1 font-semibold">Email Address</label>
+                        <input type="email" id="signup-email" placeholder="you@example.com" required class="glass-input w-full rounded-xl p-4 transition-all placeholder-slate-500">
+                    </div>
+                    <div>
+                        <label for="signup-password" class="block text-xs uppercase tracking-wider text-cyan-400 mb-2 ml-1 font-semibold">Password</label>
+                        <input type="password" id="signup-password" placeholder="••••••••" required class="glass-input w-full rounded-xl p-4 transition-all placeholder-slate-500">
+                    </div>
+                    <div>
+                        <label for="signup-confirm-password" class="block text-xs uppercase tracking-wider text-cyan-400 mb-2 ml-1 font-semibold">Confirm Password</label>
+                        <input type="password" id="signup-confirm-password" placeholder="••••••••" required class="glass-input w-full rounded-xl p-4 transition-all placeholder-slate-500">
+                    </div>
+                    <button id="signup-btn" type="submit" class="btn-3d w-full bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-bold py-4 px-4 rounded-xl text-lg shadow-lg border-t border-white/20 mt-4">
+                        Create Account
+                    </button>
+                    <p class="text-center text-sm text-slate-400 mt-4">
+                        Already have an account? 
+                        <a href="#" id="goto-login-link" class="text-cyan-400 hover:text-cyan-300 font-medium transition-colors">Login Here</a>
+                    </p>
+                </form>
+            </section>
+
+            <section id="page-input" class="hidden glass-card p-8 md:p-10 rounded-3xl shadow-2xl">
+                <div class="flex items-center mb-8 pb-4 border-b border-white/10">
+                    <div class="w-2 h-8 bg-cyan-500 rounded-full mr-4 shadow-[0_0_10px_rgba(6,182,212,0.8)]"></div>
+                    <h2 class="text-2xl font-semibold text-white">
+                        Enter Appliance Details
+                    </h2>
+                </div>
+                
+                <div class="space-y-6">
+                    <div>
+                        <label for="device-select" class="block text-sm font-medium text-slate-300 mb-2">1. Select Appliance / Device</label>
+                        <div class="relative">
+                            <select id="device-select" class="glass-input w-full rounded-xl p-4 appearance-none cursor-pointer">
+                                <option value="">-- Select an Appliance --</option>
+                                <option value="air-conditioner">Air Conditioner (Window/Split)</option>
+                                <option value="refrigerator">Refrigerator (Fridge)</option>
+                                <option value="electric-heater">Electric Heater (Space Heater)</option>
+                                <option value="washing-machine">Washing Machine</option>
+                                <option value="water-heater">Water Heater (Geyser)</option>
+                                <option value="ceiling-fan">Ceiling Fan</option>
+                                <option value="television">Television (Large LED/OLED)</option>
+                                <option value="desktop-computer">Desktop Computer</option>
+                                <option value="microwave-oven">Microwave Oven</option>
+                                <option value="water-purifier">Water Purifier (RO/UV)</option>
+                            </select>
+                            <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-white">
+                                <svg class="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label for="state-select" class="block text-sm font-medium text-slate-300 mb-2">2. Select Your State (Location)</label>
+                        <div class="relative">
+                            <select id="state-select" class="glass-input w-full rounded-xl p-4 appearance-none cursor-pointer">
+                                <option value="">-- Select State --</option>
+                                <option value="Chandigarh">Chandigarh</option>
+                                <option value="Delhi">Delhi</option>
+                                <option value="Haryana">Haryana</option>
+                                <option value="Himachal Pradesh">Himachal Pradesh</option>
+                                <option value="Jammu & Kashmir (UT)">Jammu & Kashmir (UT)</option>
+                                <option value="Ladakh (UT)">Ladakh (UT)</option>
+                                <option value="Punjab">Punjab</option>
+                                <option value="Rajasthan">Rajasthan</option>
+                                <option value="Uttar Pradesh">Uttar Pradesh</option>
+                                <option value="Uttarakhand">Uttarakhand</option>
+                                <option value="Chhattisgarh">Chhattisgarh</option>
+                                <option value="Gujarat">Gujarat</option>
+                                <option value="Madhya Pradesh">Madhya Pradesh</option>
+                                <option value="Maharashtra">Maharashtra</option>
+                                <option value="DNH & DD">DNH & DD</option>
+                                <option value="Goa">Goa</option>
+                                <option value="Andhra Pradesh">Andhra Pradesh</option>
+                                <option value="Telangana">Telangana</option>
+                                <option value="Karnataka">Karnataka</option>
+                                <option value="Kerala">Kerala</option>
+                                <option value="Tamil Nadu">Tamil Nadu</option>
+                                <option value="Puducherry">Puducherry</option>
+                                <option value="Bihar">Bihar</option>
+                                <option value="Jharkhand">Jharkhand</option>
+                                <option value="Odisha">Odisha</option>
+                                <option value="West Bengal">West Bengal</option>
+                                <option value="Sikkim">Sikkim</option>
+                                <option value="Arunachal Pradesh">Arunachal Pradesh</option>
+                                <option value="Assam">Assam</option>
+                                <option value="Manipur">Manipur</option>
+                                <option value="Meghalaya">Meghalaya</option>
+                                <option value="Mizoram">Mizoram</option>
+                                <option value="Nagaland">Nagaland</option>
+                                <option value="Tripura">Tripura</option>
+                            </select>
+                             <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-white">
+                                <svg class="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label for="hours-input" class="block text-sm font-medium text-slate-300 mb-2">3. Daily Usage (Hours)</label>
+                            <input type="number" id="hours-input" placeholder="e.g., 8" class="glass-input w-full rounded-xl p-4">
+                            <p id="hours-note" class="text-xs text-cyan-300 mt-2 hidden italic flex items-center">
+                                <span class="mr-1">ℹ️</span> <span id="hours-note-text"></span>
+                            </p>
+                        </div>
+                        <div>
+                            <label for="weather-select" class="block text-sm font-medium text-slate-300 mb-2">4. Weather Condition</label>
+                             <div class="relative">
+                                <select id="weather-select" class="glass-input w-full rounded-xl p-4 appearance-none cursor-pointer">
+                                    <option value="mild">Mild / Standard</option>
+                                    <option value="hot">Hot</option>
+                                    <option value="cold">Cold</option>
+                                </select>
+                                <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-white">
+                                    <svg class="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label for="cost-input" class="block text-sm font-medium text-slate-300 mb-2">5. Electricity Rate (per kWh / Unit) in ₹</label>
+                        <input type="number" id="cost-input" value="8.00" step="0.10" class="glass-input w-full rounded-xl p-4 font-mono text-lg">
+                        <p class="text-xs text-slate-400 mt-2">Check your electricity bill for the rate (Default: ₹8.00)</p>
+                    </div>
+                    
+                    <button id="calculate-btn" class="btn-3d w-full bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-bold py-4 px-4 rounded-xl transition-all duration-200 text-lg shadow-xl border-t border-white/20 mt-4">
+                        Calculate Analysis ⚡
+                    </button>
+                </div>
+            </section>
+            
+            <section id="page-results" class="hidden space-y-8 pb-12">
+                
+                <header class="flex justify-between items-center">
+                    <h2 id="results-title" class="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-400">
+                        Report Analysis
+                    </h2>
+                    <button id="back-btn" class="bg-white/10 hover:bg-white/20 text-white font-medium py-2 px-6 rounded-full transition-colors duration-200 backdrop-blur-md border border-white/10">
+                        &larr; Go Back
+                    </button>
+                </header>
+                
+                <div class="glass-card p-8 rounded-3xl relative overflow-hidden">
+                    <div class="absolute top-0 right-0 -mr-16 -mt-16 w-64 h-64 bg-emerald-500/20 rounded-full blur-3xl pointer-events-none"></div>
+
+                    <h3 class="text-xl font-semibold text-emerald-400 mb-6 flex items-center">
+                        <span class="text-2xl mr-2">💰</span> Estimated Energy Cost
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-center mb-8">
+                        <div class="bg-black/30 p-5 rounded-2xl border border-emerald-500/30">
+                            <div class="text-xs text-emerald-400 uppercase tracking-widest mb-1">Daily</div>
+                            <div id="cost-day" class="text-3xl font-bold text-white font-mono">...</div>
+                        </div>
+                        <div class="bg-black/30 p-5 rounded-2xl border border-emerald-500/30 shadow-[0_0_15px_rgba(16,185,129,0.15)]">
+                            <div class="text-xs text-emerald-400 uppercase tracking-widest mb-1">Monthly</div>
+                            <div id="cost-month" class="text-4xl font-bold text-white font-mono">...</div>
+                        </div>
+                        <div class="bg-black/30 p-5 rounded-2xl border border-emerald-500/30">
+                            <div class="text-xs text-emerald-400 uppercase tracking-widest mb-1">Yearly</div>
+                            <div id="cost-year" class="text-3xl font-bold text-white font-mono">...</div>
+                        </div>
+                    </div>
+                    
+                    <h3 class="text-xl font-semibold text-emerald-400 mb-4">
+                        Savings Tips
+                    </h3>
+                    <ul id="savings-tips-list" class="list-disc list-inside space-y-3 text-slate-300 mb-6 pl-2">
+                        </ul>
+                    
+                    <div>
+                        <button id="ai-tips-btn" class="btn-3d w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold py-3 px-4 rounded-xl transition-all shadow-lg border-t border-white/20">
+                             Show me how to save money
+                        </button>
+                        <div id="ai-tips-loader" class="text-center py-6 hidden">
+                            <div class="loader inline-block"></div>
+                            <p class="text-sm text-emerald-400 mt-2">Analyzing usage patterns...</p>
+                        </div>
+                        <div id="ai-tips-content" class="mt-6 p-6 bg-emerald-900/20 border border-emerald-500/30 rounded-xl hidden">
+                            <h4 class="text-lg font-semibold text-emerald-300 mb-3">AI Recommendations:</h4>
+                            <ul id="ai-tips-list" class="list-disc list-inside space-y-2 text-slate-200">
+                                </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="glass-card p-8 rounded-3xl relative overflow-hidden">
+                    <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-56 h-56 bg-green-600/20 rounded-full blur-3xl pointer-events-none"></div>
+                    
+                    <div class="relative z-10 text-center">
+                        <h3 class="text-xl font-semibold text-green-400 mb-4 uppercase tracking-widest">Nature's Balance</h3>
+                        
+                        <div class="tree-anim mx-auto mb-4 w-24 h-24 text-green-500">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-full h-full drop-shadow-[0_0_15px_rgba(34,197,94,0.5)]">
+                                <path d="M12 2C14.5 2 16.5 4 16.5 6.5C16.5 7.6 16.1 8.6 15.4 9.4C17.2 9.9 18.5 11.6 18.5 13.5C18.5 16 16.5 18 14 18H13V22H11V18H10C7.5 18 5.5 16 5.5 13.5C5.5 11.6 6.8 9.9 8.6 9.4C7.9 8.6 7.5 7.6 7.5 6.5C7.5 4 9.5 2 12 2Z"/>
+                            </svg>
+                        </div>
+
+                        <div class="mb-4">
+                            <p class="text-slate-300 text-sm uppercase tracking-widest mb-1">Trees needed to neutralize this appliance:</p>
+                            <div class="flex justify-center items-baseline">
+                                <span id="tree-count" class="text-6xl font-bold text-white">0</span>
+                                <span class="text-2xl font-medium text-green-400 ml-1">Trees</span>
+                            </div>
+                            <p class="text-xs text-slate-400 mt-1">(Based on <span id="co2-emission">0</span> kg CO₂/year)</p>
+                        </div>
+
+                        <div class="bg-black/30 p-6 rounded-2xl border border-green-500/30 max-w-sm mx-auto">
+                            <label for="tree-pledge" class="block text-sm font-medium text-green-300 mb-2">My Green Pledge: How many trees will you plant?</label>
+                            <input type="number" id="tree-pledge" placeholder="0" class="glass-input w-full rounded-xl p-3 text-center text-2xl font-bold mb-2" min="0">
+                            <div id="pledge-result" class="text-sm text-slate-400 min-h-[24px]">Enter a number above...</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="card-state-data" class="glass-card p-8 rounded-3xl relative overflow-hidden">
+                    <div class="absolute top-0 left-0 -ml-16 -mt-16 w-64 h-64 bg-amber-500/20 rounded-full blur-3xl pointer-events-none"></div>
+                    
+                    <h3 id="state-data-title" class="text-xl font-semibold text-amber-400 mb-6 flex items-center relative z-10">
+                        <span class="text-2xl mr-2">🏭</span> The Big Picture: Grid Stats
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-center mb-6 relative z-10">
+                        <div class="bg-black/30 p-4 rounded-xl border border-amber-500/30">
+                            <div class="text-xs text-amber-400 uppercase tracking-widest mb-1">State Peak Demand</div>
+                            <div id="state-peak-demand" class="text-2xl font-bold text-white font-mono">...</div>
+                        </div>
+                        <div class="bg-black/30 p-4 rounded-xl border border-amber-500/30">
+                            <div class="text-xs text-amber-400 uppercase tracking-widest mb-1">Demand Not Met</div>
+                            <div id="state-demand-not-met" class="text-2xl font-bold text-white font-mono">...</div>
+                        </div>
+                        <div class="bg-black/30 p-4 rounded-xl border border-amber-500/30">
+                            <div class="text-xs text-amber-400 uppercase tracking-widest mb-1">Energy Shortfall</div>
+                            <div id="state-energy-not-supplied" class="text-2xl font-bold text-white font-mono">...</div>
+                        </div>
+                    </div>
+                    
+                    <p id="state-data-context" class="text-slate-300 text-center mb-3 relative z-10 bg-black/20 p-4 rounded-lg">
+                        </p>
+                    <p class="text-xs text-slate-500 text-center relative z-10">
+                        Source: Ministry of Power, India (Oct 2025)
+                    </p>
+                </div>
+                
+                <div class="glass-card p-8 rounded-3xl relative overflow-hidden">
+                     <div class="absolute bottom-0 right-0 -mr-20 -mb-20 w-80 h-80 bg-red-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+                    <h3 class="text-xl font-semibold text-rose-400 mb-6 flex items-center">
+                        <span class="text-2xl mr-2">☢️</span> Environmental Hazards
+                    </h3>
+                    
+                    <div class="mb-6">
+                        <h4 class="text-sm font-bold text-slate-400 uppercase tracking-widest mb-3">Harmful Materials (Lifecycle)</h4>
+                        <ul id="substances-list" class="list-disc list-inside space-y-2 text-slate-300 bg-black/20 p-4 rounded-xl border border-white/5">
+                            </ul>
+                    </div>
+
+                    <div class="mb-8">
+                        <h4 class="text-sm font-bold text-slate-400 uppercase tracking-widest mb-3">Impact on Nature</h4>
+                        <ul id="impacts-list" class="list-disc list-inside space-y-2 text-slate-300 bg-black/20 p-4 rounded-xl border border-white/5">
+                            </ul>
+                    </div>
+                    
+                    <div>
+                        <button id="ai-env-btn" class="btn-3d w-full bg-gradient-to-r from-rose-600 to-red-700 hover:from-rose-500 hover:to-red-600 text-white font-bold py-3 px-4 rounded-xl transition-all shadow-lg border-t border-white/20">
+                         See my impact on nature
+                        </button>
+                        <div id="ai-env-loader" class="text-center py-6 hidden">
+                            <div class="loader inline-block border-t-rose-500"></div>
+                            <p class="text-sm text-rose-400 mt-2">Compiling environmental data...</p>
+                        </div>
+                        <div id="ai-env-content" class="mt-6 p-6 bg-rose-900/20 border border-rose-500/30 rounded-xl hidden">
+                            <h4 class="text-lg font-semibold text-rose-300 mb-2">AI Environmental Report</h4>
+                            <h5 class="text-sm font-bold text-rose-400 mt-4 mb-2 uppercase">⚠️ Key Substances:</h5>
+                            <ul id="ai-substances-list" class="list-disc list-inside space-y-2 text-slate-200 mb-4"></ul>
+                            <h5 class="text-sm font-bold text-rose-400 mt-4 mb-2 uppercase">🌍 Consequences:</h5>
+                            <ul id="ai-impacts-list" class="list-disc list-inside space-y-2 text-slate-200"></ul>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="glass-card p-8 rounded-3xl relative overflow-hidden mt-8">
+                    <h3 class="text-xl font-semibold text-blue-400 mb-4 flex items-center">
+                        <span class="text-2xl mr-2">🗺️</span> Regional Load Distribution: <span id="map-state-name" class="text-white ml-2"></span>
+                    </h3>
+                    <p class="text-sm text-slate-400 mb-4">
+                        Visualizing load centers. 
+                        <span class="text-red-400 font-bold">● Red</span> = High Load (Urban/Industrial), 
+                        <span class="text-green-400 font-bold">● Green</span> = Low Load (Efficient/Rural).
+                        <br><span class="text-xs text-slate-500 italic">(Map shows only the selected state region)</span>
+                    </p>
+                    <div id="map" class="border border-slate-700 shadow-lg"></div>
+                </div>
+                
+            </section>
+        </main>
+    </div>
+
+    <div id="error-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 hidden z-50">
+        <div class="glass-card bg-[#1e293b] rounded-2xl shadow-2xl p-6 max-w-sm w-full border border-red-500/50 transform scale-100 transition-transform">
+            <div class="flex items-center mb-4">
+                <div class="bg-red-500/20 p-2 rounded-full mr-3">
+                    <svg class="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                </div>
+                <h3 class="text-xl font-bold text-white">Input Error</h3>
+            </div>
+            <p id="error-message" class="text-slate-300 mb-6">Please enter all details correctly.</p>
+            <button id="close-modal-btn" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-xl transition-colors shadow-lg">
+                Dismiss
+            </button>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+    <script>
+        // --- 1. APPLIANCE DATABASE ---
+        const applianceData = {
+            'air-conditioner': { name: "Air Conditioner", avgWattage: 1500, note: "Note: Uses significant electricity.", tips: ["Clean or replace filters every 1-2 months.", "Set thermostat to 24°C.", "Run a ceiling fan with the AC."], substances: ["Hydrofluorocarbons (HFCs)", "Carbon Dioxide (CO2)"], impacts: ["HFCs are potent greenhouse gases.", "High energy demand burns more coal."] },
+            'refrigerator': { name: "Refrigerator", avgWattage: 150, note: "Note: 'Hours' must be 24 (always on).", tips: ["Keep coils clean.", "Check door seals.", "Set Fridge to 4°C."], substances: ["HFCs/CFCs", "E-Waste"], impacts: ["Greenhouse gas emissions.", "Soil contamination from e-waste."] },
+            'electric-heater': { name: "Electric Heater", avgWattage: 1500, note: "Note: Extremely high power consumption.", tips: ["Heat only occupied spaces.", "Draft-proof windows."], substances: ["Carbon Dioxide (CO2)"], impacts: ["High load on grid."] },
+            'washing-machine': { name: "Washing Machine", avgWattage: 500, note: "Note: 'Hours' = Duration of one cycle.", tips: ["Use cold water.", "Run full loads."], substances: ["Microplastics", "Phosphates"], impacts: ["Water pollution.", "Algal blooms."] },
+            'water-heater': { name: "Water Heater (Geyser)", avgWattage: 2000, note: "Note: 'Hours' = Heating time.", tips: ["Set thermostat to 50°C.", "Insulate pipes."], substances: ["CO2", "Scale"], impacts: ["High peak demand."] },
+            'ceiling-fan': { name: "Ceiling Fan", avgWattage: 75, note: "Note: New BLDC fans use 30W.", tips: ["Turn off when leaving.", "Clean blades."], substances: ["E-Waste"], impacts: ["Cumulative energy waste."] },
+            'television': { name: "Television", avgWattage: 150, note: "", tips: ["Reduce brightness.", "Unplug to stop standby power."], substances: ["Lead", "Mercury"], impacts: ["Toxic e-waste."] },
+            'desktop-computer': { name: "Desktop Computer", avgWattage: 250, note: "Gaming PCs consume more.", tips: ["Use Sleep mode.", "Turn off monitor."], substances: ["Lead", "Cadmium"], impacts: ["E-waste toxicity."] },
+            'microwave-oven': { name: "Microwave Oven", avgWattage: 1200, note: "Note: 'Hours' = Cooking time.", tips: ["Unplug when not in use.", "Keep clean."], substances: ["E-Waste"], impacts: ["E-waste."] },
+            'water-purifier': { name: "Water Purifier", avgWattage: 40, note: "Note: 'Hours' = Pump time.", tips: ["Reuse reject water.", "Change filters."], substances: ["Plastic Filters", "Wastewater"], impacts: ["Plastic waste.", "Water wastage."] }
+        };
+
+        // --- 1.2. STATE DATA (With Zoom Levels) ---
+        // Zoom levels are approximate to "fit" the state in the white map view.
+        const stateEnergyData = {
+            "Chandigarh": { req_mu: 132, peak_mw: 323, lat: 30.7333, lon: 76.7794, zoom: 11 },
+            "Delhi": { req_mu: 2832, peak_mw: 5956, lat: 28.7041, lon: 77.1025, zoom: 10 },
+            "Haryana": { req_mu: 5455, peak_mw: 11372, lat: 29.0588, lon: 76.0856, zoom: 7 },
+            "Himachal Pradesh": { req_mu: 992, peak_mw: 2003, lat: 31.1048, lon: 77.1734, zoom: 7 },
+            "Jammu & Kashmir (UT)": { req_mu: 1173, peak_mw: 1934, lat: 33.7782, lon: 76.5762, zoom: 7 },
+            "Ladakh (UT)": { req_mu: 64, peak_mw: 124, lat: 34.1526, lon: 77.5770, zoom: 6 },
+            "Punjab": { req_mu: 5693, peak_mw: 11762, lat: 31.1471, lon: 75.3412, zoom: 7 },
+            "Rajasthan": { req_mu: 8328, peak_mw: 17297, lat: 27.0238, lon: 74.2179, zoom: 6 },
+            "Uttar Pradesh": { req_mu: 12431, peak_mw: 24707, lat: 26.8467, lon: 80.9462, zoom: 6 },
+            "Uttarakhand": { req_mu: 1253, peak_mw: 2548, lat: 30.0668, lon: 79.0193, zoom: 7 },
+            "Chhattisgarh": { req_mu: 2197, peak_mw: 4426, lat: 21.2787, lon: 81.8661, zoom: 6 },
+            "Gujarat": { req_mu: 11210, peak_mw: 20464, lat: 22.2587, lon: 71.1924, zoom: 6 },
+            "Madhya Pradesh": { req_mu: 7724, peak_mw: 14006, lat: 22.9734, lon: 78.6569, zoom: 6 },
+            "Maharashtra": { req_mu: 15273, peak_mw: 24967, lat: 19.7515, lon: 75.7139, zoom: 6 },
+            "Goa": { req_mu: 382, peak_mw: 590, lat: 15.2993, lon: 74.1240, zoom: 9 },
+            "Andhra Pradesh": { req_mu: 6319, peak_mw: 10925, lat: 15.9129, lon: 79.7400, zoom: 6 },
+            "Telangana": { req_mu: 7414, peak_mw: 13348, lat: 18.1124, lon: 79.0193, zoom: 7 },
+            "Karnataka": { req_mu: 7088, peak_mw: 12895, lat: 15.3173, lon: 75.7139, zoom: 6 },
+            "Kerala": { req_mu: 2172, peak_mw: 3918, lat: 10.8505, lon: 76.2711, zoom: 7 },
+            "Tamil Nadu": { req_mu: 10565, peak_mw: 17144, lat: 11.1271, lon: 78.6569, zoom: 6 },
+            "Puducherry": { req_mu: 302, peak_mw: 489, lat: 11.9416, lon: 79.8083, zoom: 10 },
+            "Bihar": { req_mu: 3792, peak_mw: 6867, lat: 25.0961, lon: 85.3131, zoom: 6 },
+            "Jharkhand": { req_mu: 1344, peak_mw: 2280, lat: 23.6102, lon: 85.2799, zoom: 7 },
+            "Odisha": { req_mu: 3051, peak_mw: 5192, lat: 20.9517, lon: 85.0985, zoom: 6 },
+            "West Bengal": { req_mu: 5556, peak_mw: 8932, lat: 22.9868, lon: 87.8550, zoom: 6 },
+            "Sikkim": { req_mu: 96, peak_mw: 139, lat: 27.5330, lon: 88.5122, zoom: 9 },
+            "Arunachal Pradesh": { req_mu: 95, peak_mw: 200, lat: 28.2180, lon: 94.7278, zoom: 6 },
+            "Assam": { req_mu: 1262, peak_mw: 2412, lat: 26.2006, lon: 92.9376, zoom: 7 },
+            "Manipur": { req_mu: 96, peak_mw: 235, lat: 24.6637, lon: 93.9063, zoom: 8 },
+            "Meghalaya": { req_mu: 173, peak_mw: 343, lat: 25.4670, lon: 91.3662, zoom: 8 },
+            "Mizoram": { req_mu: 63, peak_mw: 141, lat: 23.1645, lon: 92.9376, zoom: 8 },
+            "Nagaland": { req_mu: 90, peak_mw: 188, lat: 26.1584, lon: 94.5624, zoom: 8 },
+            "Tripura": { req_mu: 187, peak_mw: 347, lat: 23.9408, lon: 91.9882, zoom: 9 },
+            "DNH & DD": { req_mu: 669, peak_mw: 1045, lat: 20.1809, lon: 73.0169, zoom: 9 }
+        };
+
+        // --- 1.5. GEMINI API CONFIG ---
+        const apiKey = "AIzaSyC_BTAIIklO1IWamHN3WZi_yQrIpfWCYfA"; 
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+
+        // --- DOM ELEMENTS ---
+        const pageInput = document.getElementById('page-input');
+        const pageResults = document.getElementById('page-results');
+        const pageLogin = document.getElementById('page-login');
+        const pageSignup = document.getElementById('page-signup');
+        const loginForm = document.getElementById('login-form');
+        const signupForm = document.getElementById('signup-form');
+        const logoutBtn = document.getElementById('logout-btn');
+        const gotoSignupLink = document.getElementById('goto-signup-link');
+        const gotoLoginLink = document.getElementById('goto-login-link');
+        const deviceSelect = document.getElementById('device-select');
+        const stateSelect = document.getElementById('state-select');
+        const hoursInput = document.getElementById('hours-input');
+        const hoursNote = document.getElementById('hours-note');
+        const hoursNoteText = document.getElementById('hours-note-text');
+        const weatherSelect = document.getElementById('weather-select');
+        const costInput = document.getElementById('cost-input');
+        const calculateBtn = document.getElementById('calculate-btn');
+        const backBtn = document.getElementById('back-btn');
+        const resultsTitle = document.getElementById('results-title');
+        const costDay = document.getElementById('cost-day');
+        const costMonth = document.getElementById('cost-month');
+        const costYear = document.getElementById('cost-year');
+        const savingsTipsList = document.getElementById('savings-tips-list');
+        const substancesList = document.getElementById('substances-list');
+        const impactsList = document.getElementById('impacts-list');
+        const cardStateData = document.getElementById('card-state-data');
+        const stateDataTitle = document.getElementById('state-data-title');
+        const statePeakDemand = document.getElementById('state-peak-demand');
+        const stateDemandNotMet = document.getElementById('state-demand-not-met');
+        const stateEnergyNotSupplied = document.getElementById('state-energy-not-supplied');
+        const stateDataContext = document.getElementById('state-data-context');
+        const treeCountDisplay = document.getElementById('tree-count');
+        const co2EmissionDisplay = document.getElementById('co2-emission');
+        const treePledgeInput = document.getElementById('tree-pledge');
+        const pledgeResult = document.getElementById('pledge-result');
+        const aiTipsBtn = document.getElementById('ai-tips-btn');
+        const aiTipsLoader = document.getElementById('ai-tips-loader');
+        const aiTipsContent = document.getElementById('ai-tips-content');
+        const aiTipsList = document.getElementById('ai-tips-list');
+        const aiEnvBtn = document.getElementById('ai-env-btn');
+        const aiEnvLoader = document.getElementById('ai-env-loader');
+        const aiEnvContent = document.getElementById('ai-env-content');
+        const aiSubstancesList = document.getElementById('ai-substances-list');
+        const aiImpactsList = document.getElementById('ai-impacts-list');
+        const errorModal = document.getElementById('error-modal');
+        const errorMessage = document.getElementById('error-message');
+        const closeModalBtn = document.getElementById('close-modal-btn');
+        const mapStateName = document.getElementById('map-state-name');
+
+        let currentAnalysis = { deviceKey: null, deviceName: null, hours: 0, weather: null, state: null };
+        let globalTreesNeeded = 0;
+        let mapInstance = null; // To hold Leaflet instance
+
+        // --- HELPER FUNCTIONS ---
+        async function fetchWithBackoff(url, options, retries = 3, delay = 1000) {
+            try {
+                const response = await fetch(url, options);
+                if (!response.ok) {
+                    if (response.status === 429 && retries > 0) {
+                        await new Promise(resolve => setTimeout(resolve, delay));
+                        return fetchWithBackoff(url, options, retries - 1, delay * 2);
+                    }
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return await response.json();
+            } catch (error) {
+                if (retries > 0) {
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                    return fetchWithBackoff(url, options, retries - 1, delay * 2);
+                }
+                throw error;
+            }
+        }
+
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorModal.classList.remove('hidden');
+        }
+
+        function populateList(ulElement, items) {
+            ulElement.innerHTML = "";
+            items.forEach(item => {
+                const li = document.createElement('li');
+                li.textContent = item;
+                ulElement.appendChild(li);
+            });
+        }
+
+        // --- MAP FUNCTIONS (White Theme) ---
+        function initMap(stateName) {
+            const stateInfo = stateEnergyData[stateName];
+            if (!stateInfo) return;
+
+            // If map already exists, remove it to reset
+            if (mapInstance) {
+                mapInstance.remove();
+            }
+
+            // Create Map with Zoom control (Zoomed in to 'stateInfo.zoom')
+            mapInstance = L.map('map').setView([stateInfo.lat, stateInfo.lon], stateInfo.zoom);
+
+            // Add Light Theme Tile Layer (CartoDB Positron) for WHITE map
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+                subdomains: 'abcd',
+                maxZoom: 19
+            }).addTo(mapInstance);
+
+            // Simulate "High Load" Points (Red) - Random deviation from center
+            for (let i = 0; i < 5; i++) {
+                const lat = stateInfo.lat + (Math.random() - 0.5) * 0.5; // Smaller spread for better view
+                const lon = stateInfo.lon + (Math.random() - 0.5) * 0.5;
+                L.circle([lat, lon], {
+                    color: '#ef4444', // Red-500
+                    fillColor: '#ef4444',
+                    fillOpacity: 0.6,
+                    radius: 10000 // 10km radius
+                }).addTo(mapInstance).bindPopup("<b>High Load Zone</b><br>Industrial/Urban Area");
+            }
+
+            // Simulate "Low Load" Points (Green)
+            for (let i = 0; i < 4; i++) {
+                const lat = stateInfo.lat + (Math.random() - 0.5) * 0.8;
+                const lon = stateInfo.lon + (Math.random() - 0.5) * 0.8;
+                L.circle([lat, lon], {
+                    color: '#22c55e', // Green-500
+                    fillColor: '#22c55e',
+                    fillOpacity: 0.6,
+                    radius: 8000
+                }).addTo(mapInstance).bindPopup("<b>Low Load Zone</b><br>Rural/Efficient Area");
+            }
+            
+            mapStateName.textContent = stateName;
+            
+            // Force map resize after container is visible
+            setTimeout(() => { mapInstance.invalidateSize(); }, 500);
+        }
+
+        // --- APP LOGIC ---
+        function showPage(pageId) {
+            pageLogin.classList.add('hidden');
+            pageSignup.classList.add('hidden');
+            pageInput.classList.add('hidden');
+            pageResults.classList.add('hidden');
+            
+            document.getElementById(pageId).classList.remove('hidden');
+
+            if (pageId === 'page-input' || pageId === 'page-results') {
+                logoutBtn.classList.remove('hidden');
+            } else {
+                logoutBtn.classList.add('hidden');
+            }
+        }
+
+        loginForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            showPage('page-input');
+        });
+
+        signupForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            showPage('page-input');
+        });
+
+        logoutBtn.addEventListener('click', () => showPage('page-login'));
+        gotoSignupLink.addEventListener('click', () => showPage('page-signup'));
+        gotoLoginLink.addEventListener('click', () => showPage('page-login'));
+
+        deviceSelect.addEventListener('change', () => {
+            const key = deviceSelect.value;
+            if (key && applianceData[key].note) {
+                hoursNoteText.textContent = applianceData[key].note;
+                hoursNote.classList.remove('hidden');
+            } else {
+                hoursNote.classList.add('hidden');
+            }
+            hoursInput.disabled = (key === 'refrigerator');
+            if (key === 'refrigerator') hoursInput.value = 24;
+        });
+
+        calculateBtn.addEventListener('click', () => {
+            const dKey = deviceSelect.value;
+            const sKey = stateSelect.value;
+            const hrs = parseFloat(hoursInput.value);
+            const rate = parseFloat(costInput.value);
+            const wthr = weatherSelect.value;
+
+            if (!dKey || !sKey || isNaN(hrs) || isNaN(rate)) {
+                showError("Please fill all details correctly.");
+                return;
+            }
+
+            const data = applianceData[dKey];
+            const sData = stateEnergyData[sKey];
+            
+            let watts = data.avgWattage;
+            let suffix = "";
+            if ((dKey === 'air-conditioner' && wthr === 'hot') || (dKey === 'electric-heater' && wthr === 'cold')) {
+                watts *= 1.4;
+                suffix = " (Increased due to weather)";
+            }
+
+            const kwhDay = (watts / 1000) * hrs;
+            const costD = kwhDay * rate;
+            
+            // Format currency
+            const fmt = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' });
+            resultsTitle.textContent = `Report: ${data.name}`;
+            costDay.textContent = fmt.format(costD);
+            costMonth.textContent = fmt.format(costD * 30.44);
+            costYear.textContent = fmt.format(costD * 365.25);
+
+            // Tree Logic
+            const annualKwh = kwhDay * 365.25;
+            const annualCO2 = annualKwh * 0.82; 
+            globalTreesNeeded = Math.ceil(annualCO2 / 20);
+            treeCountDisplay.textContent = globalTreesNeeded;
+            co2EmissionDisplay.textContent = Math.round(annualCO2) + " kg";
+            
+            // Reset Pledge
+            treePledgeInput.value = '';
+            pledgeResult.textContent = "Enter a number above...";
+            pledgeResult.className = "text-sm text-slate-400 min-h-[24px]";
+
+            // Lists
+            const tips = data.tips.map(t => t + suffix);
+            populateList(savingsTipsList, tips);
+            populateList(substancesList, data.substances);
+            populateList(impactsList, data.impacts);
+
+            // State Card
+            stateDataTitle.innerHTML = `<span class="text-2xl mr-2">⚡</span> Grid Stats: ${sKey}`;
+            const numFmt = new Intl.NumberFormat('en-IN');
+            statePeakDemand.textContent = numFmt.format(sData.peak_mw) + " MW";
+            stateDemandNotMet.textContent = "0 MW"; // Placeholder as per user req
+            stateEnergyNotSupplied.textContent = "0 MU"; // Placeholder
+            stateDataContext.textContent = `Your state peaked at ${numFmt.format(sData.peak_mw)} MW. The grid met demand, but saving energy helps stability.`;
+
+            // Reset AI
+            aiTipsContent.classList.add('hidden');
+            aiEnvContent.classList.add('hidden');
+            aiTipsBtn.disabled = false;
+            aiEnvBtn.disabled = false;
+            
+            currentAnalysis = { deviceKey: dKey, deviceName: data.name, hours: hrs, weather: wthr, state: sKey };
+            
+            showPage('page-results');
+            window.scrollTo(0,0);
+            
+            // Init Map
+            setTimeout(() => initMap(sKey), 100);
+        });
+
+        treePledgeInput.addEventListener('input', () => {
+            const val = parseInt(treePledgeInput.value) || 0;
+            if(val <= 0) {
+                pledgeResult.textContent = "Enter valid number...";
+                pledgeResult.className = "text-sm text-slate-400 mt-2";
+                return;
+            }
+            if(val >= globalTreesNeeded) {
+                pledgeResult.innerHTML = "🌿 You are <b>Carbon Neutral</b>!";
+                pledgeResult.className = "text-green-400 text-sm mt-2";
+            } else {
+                const pct = Math.round((val/globalTreesNeeded)*100);
+                pledgeResult.innerHTML = `🌱 Covers <b>${pct}%</b>. Need ${globalTreesNeeded - val} more.`;
+                pledgeResult.className = "text-amber-400 text-sm mt-2";
+            }
+        });
+
+        backBtn.addEventListener('click', () => showPage('page-input'));
+        closeModalBtn.addEventListener('click', () => errorModal.classList.add('hidden'));
+
+        // AI Handlers
+        async function handleGetAITips() {
+            aiTipsBtn.disabled = true;
+            aiTipsLoader.classList.remove('hidden');
+            const { deviceName, hours, weather, state } = currentAnalysis;
+            const prompt = `Give 3 short energy saving tips for ${deviceName} used ${hours}hrs/day in ${weather} weather in ${state}, India. JSON format: {"tips": ["tip1", "tip2", "tip3"]}`;
+            
+            try {
+                const res = await fetchWithBackoff(apiUrl, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+                });
+                const txt = res.candidates[0].content.parts[0].text;
+                // Clean markdown code blocks if present
+                const cleanJson = txt.replace(/```json/g, '').replace(/```/g, '');
+                const parsed = JSON.parse(cleanJson);
+                populateList(aiTipsList, parsed.tips);
+                aiTipsContent.classList.remove('hidden');
+            } catch(e) {
+                console.error(e);
+                populateList(aiTipsList, ["Could not generate tips. Try again."]);
+                aiTipsContent.classList.remove('hidden');
+            } finally {
+                aiTipsLoader.classList.add('hidden');
+            }
+        }
+
+        async function handleGetAIEnvironmentReport() {
+            aiEnvBtn.disabled = true;
+            aiEnvLoader.classList.remove('hidden');
+            const { deviceName } = currentAnalysis;
+            const prompt = `Environmental impact of ${deviceName} in India. JSON format: {"substances": ["item1", "item2"], "impacts": ["impact1", "impact2"]}`;
+
+            try {
+                const res = await fetchWithBackoff(apiUrl, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+                });
+                const txt = res.candidates[0].content.parts[0].text;
+                const cleanJson = txt.replace(/```json/g, '').replace(/```/g, '');
+                const parsed = JSON.parse(cleanJson);
+                populateList(aiSubstancesList, parsed.substances);
+                populateList(aiImpactsList, parsed.impacts);
+                aiEnvContent.classList.remove('hidden');
+            } catch(e) {
+                console.error(e);
+                populateList(aiSubstancesList, ["Error loading report."]);
+                aiEnvContent.classList.remove('hidden');
+            } finally {
+                aiEnvLoader.classList.add('hidden');
+            }
+        }
+
+        aiTipsBtn.addEventListener('click', handleGetAITips);
+        aiEnvBtn.addEventListener('click', handleGetAIEnvironmentReport);
+
+        showPage('page-login');
+    </script>
+</body>
+</html>
